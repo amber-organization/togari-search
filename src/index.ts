@@ -16,6 +16,8 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse';
 import express from 'express';
 import { z } from 'zod';
+import dncRouter from './routes/dnc';
+import { initDNCSchema } from './services/dnc-bigquery';
 
 const AMBER_API_URL = process.env.AMBER_API_URL || 'http://localhost:3000';
 const AMBER_REPO_PATH = process.env.AMBER_REPO_PATH || '';
@@ -611,6 +613,9 @@ async function main(): Promise<void> {
       res.status(204).end();
     });
 
+    // JSON body parsing
+    app.use(express.json());
+
     // Health check
     app.get('/health', (_req, res) => {
       res.json({
@@ -620,6 +625,9 @@ async function main(): Promise<void> {
         tools: 13,
       });
     });
+
+    // DNC enrichment routes (public, no auth)
+    app.use('/api/dnc', dncRouter);
 
     // SSE transport
     const transports = new Map<string, SSEServerTransport>();
@@ -646,6 +654,13 @@ async function main(): Promise<void> {
       }
       await transport.handlePostMessage(req, res);
     });
+
+    // Initialize DNC BigQuery schema (non-blocking — never crashes server)
+    try {
+      await initDNCSchema();
+    } catch (err) {
+      process.stderr.write(`DNC schema init warning: ${err}\n`);
+    }
 
     app.listen(Number(port), () => {
       process.stderr.write(
