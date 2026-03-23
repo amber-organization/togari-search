@@ -45,6 +45,8 @@ await esbuild.build({
     'raw-body',
     'content-type',
     'cors',
+    '@google-cloud/bigquery',
+    'googleapis',
   ],
 });
 
