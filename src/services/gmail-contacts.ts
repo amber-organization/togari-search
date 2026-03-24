@@ -97,7 +97,7 @@ export async function pullGmailContacts(
   do {
     const res = await people.otherContacts.list({
       pageSize: 1000,
-      readMask: 'names,emailAddresses,phoneNumbers,organizations',
+      readMask: 'names,emailAddresses,phoneNumbers',
       pageToken: otherPageToken,
     });
 
