@@ -64,13 +64,18 @@ router.get('/oauth/google/callback', async (req, res) => {
   }
 });
 
-// POST /check — check if an email is on the DNC list (called per-row by Clay)
+// POST /check — check if an email or LinkedIn URL is on the DNC list (called per-row by Clay)
 router.post('/check', async (req, res) => {
   try {
-    const { email, user_email, org_id, scope } = req.body;
+    const { email, linkedin_url, user_email, org_id, scope } = req.body;
 
-    if (!email || !user_email || !org_id || !scope) {
-      res.status(400).json({ error: 'Missing required fields: email, user_email, org_id, scope' });
+    if (!user_email || !org_id || !scope) {
+      res.status(400).json({ error: 'Missing required fields: user_email, org_id, scope' });
+      return;
+    }
+
+    if (!email && !linkedin_url) {
+      res.status(400).json({ error: 'Must provide either email or linkedin_url' });
       return;
     }
 
@@ -79,7 +84,13 @@ router.post('/check', async (req, res) => {
       return;
     }
 
-    const result = await checkDNC(email.toLowerCase().trim(), user_email, org_id, scope);
+    const result = await checkDNC(
+      email ? email.toLowerCase().trim() : undefined,
+      user_email,
+      org_id,
+      scope,
+      linkedin_url
+    );
 
     if (result.isDNC) {
       res.json({ isDNC: true, owner: result.owner, name: result.name });

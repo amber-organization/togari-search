@@ -20,7 +20,7 @@ const TABLE_SCHEMA = [
   { name: 'owner_email', type: 'STRING', mode: 'REQUIRED' as const },
   { name: 'org_id', type: 'STRING', mode: 'REQUIRED' as const },
   { name: 'name', type: 'STRING', mode: 'NULLABLE' as const },
-  { name: 'email', type: 'STRING', mode: 'REQUIRED' as const },
+  { name: 'email', type: 'STRING', mode: 'NULLABLE' as const },
   { name: 'phone', type: 'STRING', mode: 'NULLABLE' as const },
   { name: 'linkedin_url', type: 'STRING', mode: 'NULLABLE' as const },
   { name: 'company', type: 'STRING', mode: 'NULLABLE' as const },
@@ -53,7 +53,7 @@ export async function initDNCSchema(): Promise<void> {
 
 interface ContactInput {
   name?: string;
-  email: string;
+  email?: string;
   phone?: string;
   linkedinUrl?: string;
   company?: string;
@@ -73,8 +73,10 @@ export async function importContacts(
     params: { ownerEmail, sourcePlatform },
   });
 
-  // Filter out contacts with no email
-  const valid = contacts.filter((c) => c.email && c.email.trim());
+  // Keep contacts that have either an email or a LinkedIn URL
+  const valid = contacts.filter(
+    (c) => (c.email && c.email.trim()) || (c.linkedinUrl && c.linkedinUrl.trim())
+  );
   const skipped = contacts.length - valid.length;
 
   if (valid.length === 0) {
@@ -83,15 +85,17 @@ export async function importContacts(
 
   const now = new Date().toISOString();
   const rows = valid.map((c) => {
-    const email = c.email.toLowerCase().trim();
+    const email = c.email ? c.email.toLowerCase().trim() : null;
+    const linkedinUrl = c.linkedinUrl ? c.linkedinUrl.trim() : null;
+    const hashInput = email || linkedinUrl!;
     return {
-      id: createHash('sha256').update(email).digest('hex').slice(0, 16),
+      id: createHash('sha256').update(hashInput).digest('hex').slice(0, 16),
       owner_email: ownerEmail,
       org_id: orgId,
       name: c.name || null,
       email,
       phone: c.phone || null,
-      linkedin_url: c.linkedinUrl || null,
+      linkedin_url: linkedinUrl,
       company: c.company || null,
       title: c.title || null,
       source_platform: sourcePlatform,
@@ -110,22 +114,27 @@ export async function importContacts(
 }
 
 export async function checkDNC(
-  email: string,
+  email: string | undefined,
   userEmail: string,
   orgId: string,
-  scope: 'individual' | 'organization'
+  scope: 'individual' | 'organization',
+  linkedinUrl?: string
 ): Promise<{ isDNC: boolean; owner?: string; name?: string }> {
-  const normalizedEmail = email.toLowerCase().trim();
+  const useLinkedin = !email && linkedinUrl;
+  const lookupField = useLinkedin ? 'linkedin_url' : 'email';
+  const lookupValue = useLinkedin
+    ? linkedinUrl!.trim()
+    : email!.toLowerCase().trim();
 
   let query: string;
   let params: Record<string, string>;
 
   if (scope === 'individual') {
-    query = `SELECT name, owner_email, source_platform FROM \`${PROJECT_ID}.${DATASET_ID}.${TABLE_ID}\` WHERE email = @email AND owner_email = @userEmail LIMIT 1`;
-    params = { email: normalizedEmail, userEmail };
+    query = `SELECT name, owner_email, source_platform FROM \`${PROJECT_ID}.${DATASET_ID}.${TABLE_ID}\` WHERE ${lookupField} = @lookupValue AND owner_email = @userEmail LIMIT 1`;
+    params = { lookupValue, userEmail };
   } else {
-    query = `SELECT name, owner_email, source_platform FROM \`${PROJECT_ID}.${DATASET_ID}.${TABLE_ID}\` WHERE email = @email AND org_id = @orgId LIMIT 1`;
-    params = { email: normalizedEmail, orgId };
+    query = `SELECT name, owner_email, source_platform FROM \`${PROJECT_ID}.${DATASET_ID}.${TABLE_ID}\` WHERE ${lookupField} = @lookupValue AND org_id = @orgId LIMIT 1`;
+    params = { lookupValue, orgId };
   }
 
   const [rows] = await bigquery.query({ query, params });
