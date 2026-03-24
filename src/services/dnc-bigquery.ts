@@ -66,13 +66,6 @@ export async function importContacts(
   sourcePlatform: string,
   contacts: ContactInput[]
 ): Promise<{ imported: number; skipped: number }> {
-  // Delete existing contacts for this owner+platform
-  const deleteQuery = `DELETE FROM \`${PROJECT_ID}.${DATASET_ID}.${TABLE_ID}\` WHERE owner_email = @ownerEmail AND source_platform = @sourcePlatform`;
-  await bigquery.query({
-    query: deleteQuery,
-    params: { ownerEmail, sourcePlatform },
-  });
-
   // Keep contacts that have either an email or a LinkedIn URL
   const valid = contacts.filter(
     (c) => (c.email && c.email.trim()) || (c.linkedinUrl && c.linkedinUrl.trim())
