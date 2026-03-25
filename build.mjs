@@ -46,6 +46,7 @@ await esbuild.build({
     'content-type',
     'cors',
     '@google-cloud/bigquery',
+    '@anthropic-ai/sdk',
     'googleapis',
   ],
 });

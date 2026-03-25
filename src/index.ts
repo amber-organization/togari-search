@@ -18,6 +18,9 @@ import express from 'express';
 import { z } from 'zod';
 import dncRouter from './routes/dnc';
 import { initDNCSchema } from './services/dnc-bigquery';
+import { SqlGenerator } from './services/sql-generator.js';
+import { BigQueryClient } from './services/togari-bigquery-client.js';
+import { handleQueryContacts, TOOL_NAME as CONTACTS_TOOL_NAME, TOOL_DESCRIPTION as CONTACTS_TOOL_DESC } from './tools/query-contacts.js';
 
 const AMBER_API_URL = process.env.AMBER_API_URL || 'http://localhost:3000';
 const AMBER_REPO_PATH = process.env.AMBER_REPO_PATH || '';
@@ -566,12 +569,80 @@ ${fix_suggestions ? `4. For each error, suggest a fix based on the error code an
     }
   );
 
+  // =========================================================================
+  // 14. QUERY CONTACTS (BigQuery natural language)
+  // =========================================================================
+
+  const contactsSqlGen = new SqlGenerator(
+    process.env.ANTHROPIC_API_KEY || '',
+    process.env.GCP_PROJECT_ID || 'midyear-glazing-485303-u3',
+    process.env.BIGQUERY_DATASET || 'togari_data_lake',
+    process.env.BIGQUERY_TABLE || 'togari_structured_contacts_external',
+    `COLUMNS:
+- linkedinUrl (STRING) — LinkedIn profile URL
+- fullName (STRING) — Full name
+- firstName (STRING) — First name
+- lastName (STRING) — Last name
+- workEmail (STRING) — Work email
+- phone (STRING) — Phone number
+- currentTitle (STRING) — Current job title
+- currentCompany (STRING) — Current company
+- companyDomain (STRING) — Company website domain
+- createdAt (TIMESTAMP) — When record was created`
+  );
+  const contactsBqClient = new BigQueryClient(
+    process.env.GCP_PROJECT_ID || 'midyear-glazing-485303-u3',
+    undefined,
+    process.env.GCP_CREDENTIALS_BASE64
+  );
+
+  server.tool(
+    'query_contacts',
+    'Query the Togari contacts database using natural language. Searches across: name, email, phone, title, company, LinkedIn URL, domain. Examples: "Find all engineers at Google", "Show contacts added this week"',
+    { natural_language_query: z.string().describe('A natural language question about your contacts.') },
+    async ({ natural_language_query }) => {
+      const result = await handleQueryContacts({ natural_language_query }, contactsSqlGen, contactsBqClient);
+      return { content: [{ type: 'text' as const, text: result }] };
+    }
+  );
+
+  // =========================================================================
+  // 15. QUERY DEALS (BigQuery natural language — optional)
+  // =========================================================================
+
+  const dealsTable = process.env.BIGQUERY_DEALS_TABLE;
+  if (dealsTable) {
+    const dealsSqlGen = new SqlGenerator(
+      process.env.ANTHROPIC_API_KEY || '',
+      process.env.GCP_PROJECT_ID || 'midyear-glazing-485303-u3',
+      process.env.BIGQUERY_DATASET || 'togari_data_lake',
+      dealsTable
+    );
+    const dealsBqClient = new BigQueryClient(
+      process.env.GCP_PROJECT_ID || 'midyear-glazing-485303-u3',
+      undefined,
+      process.env.GCP_CREDENTIALS_BASE64
+    );
+
+    server.tool(
+      'query_deals',
+      'Query the Togari deals database using natural language. Examples: "Show all deals closed this month", "Find deals worth over 100k"',
+      { natural_language_query: z.string().describe('A natural language question about your deals.') },
+      async ({ natural_language_query }) => {
+        const result = await handleQueryContacts({ natural_language_query }, dealsSqlGen, dealsBqClient);
+        return { content: [{ type: 'text' as const, text: result }] };
+      }
+    );
+  }
+
+  const toolCount = dealsTable ? 15 : 14;
   process.stderr.write(
-    'Registered 13 tools: amber_health_check, amber_list_sprint_tasks, ' +
+    `Registered ${toolCount} tools: amber_health_check, amber_list_sprint_tasks, ` +
     'amber_get_task_status, amber_update_task, amber_list_api_routes, ' +
     'amber_db_schema, amber_deploy_status, amber_create_branch, ' +
     'amber_create_pr, amber_ios_models, amber_ios_views, ' +
-    'amber_backend_services, amber_run_typecheck\n'
+    'amber_backend_services, amber_run_typecheck, query_contacts' +
+    (dealsTable ? ', query_deals' : '') + '\n'
   );
 }
 
@@ -622,7 +693,7 @@ async function main(): Promise<void> {
         status: 'ok',
         service: 'togari-amber',
         version: '1.0.0',
-        tools: 13,
+        tools: process.env.BIGQUERY_DEALS_TABLE ? 15 : 14,
       });
     });
 
