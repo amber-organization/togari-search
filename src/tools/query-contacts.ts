@@ -1,5 +1,4 @@
-import { SqlGenerator } from '../services/sql-generator.js';
-import { BigQueryClient, QueryResult } from '../services/togari-bigquery-client.js';
+import { SqlGenerator, BigQueryClient, QueryResult } from '@togari/admin';
 
 export const TOOL_NAME = 'query_contacts';
 export const TOOL_DESCRIPTION = 'Query the Togari contacts database using natural language. Searches across contact fields: name, email, phone, title, company, LinkedIn URL, and domain. Examples: "Find all engineers at Google", "Show contacts added this week", "How many contacts have a work email?"';
@@ -7,7 +6,8 @@ export const TOOL_DESCRIPTION = 'Query the Togari contacts database using natura
 export async function handleQueryContacts(input: { natural_language_query: string }, sqlGenerator: SqlGenerator, bigqueryClient: BigQueryClient): Promise<string> {
   let sql: string;
   try {
-    sql = await sqlGenerator.generate(input.natural_language_query);
+    const result = await sqlGenerator.generate(input.natural_language_query);
+    sql = result.sql;
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     return `Error generating SQL: ${msg}`;
@@ -29,7 +29,7 @@ export async function handleQueryContacts(input: { natural_language_query: strin
     return parts.join('\n\n');
   }
   if (result.rows.length > 0) {
-    const columns = result.schema.map((s) => s.name);
+    const columns = (result.schema || []).map((s) => s.name);
     if (columns.length > 0) {
       const header = '| ' + columns.join(' | ') + ' |';
       const separator = '| ' + columns.map(() => '---').join(' | ') + ' |';
