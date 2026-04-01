@@ -13,7 +13,7 @@
   "dependencies": {
     "@google-cloud/bigquery": "^7.9.0",
     "@modelcontextprotocol/sdk": "^1.12.1",
-    "@togari/admin": "file:../togari-admin",
+    "@togari/admin": "file:./vendor/togari-admin-1.0.0.tgz",
     "cors": "^2.8.5",
     "express": "^4.21.0",
     "googleapis": "^130.0.0",
