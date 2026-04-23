@@ -1,13 +1,10 @@
 """Pydantic schemas for UC1 community-event matching."""
 from __future__ import annotations
-
 from typing import List, Literal, Optional
-
 from pydantic import BaseModel, Field
 
 
 # ---------- Request ----------
-
 class EventInfo(BaseModel):
     id: str
     type: Literal["community_event"] = "community_event"
@@ -62,6 +59,13 @@ class MatchRequest(BaseModel):
 
 
 # ---------- Response ----------
+class ScoreBreakdown(BaseModel):
+    textSimilarity: float
+    structuredSimilarity: float
+    trust: float
+    readinessHarmony: float
+    explanation: str
+
 
 class PairOut(BaseModel):
     memberId: str
@@ -69,6 +73,8 @@ class PairOut(BaseModel):
     rank: Literal[1, 2]
     rationale: str
     compatibilityScore: float
+    confidence: Literal["high", "medium", "low"] = "medium"
+    scoreBreakdown: Optional[ScoreBreakdown] = None
     signals: List[str] = Field(default_factory=list)
 
 

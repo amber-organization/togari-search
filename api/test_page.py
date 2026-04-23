@@ -22,31 +22,47 @@ TEST_PAGE_HTML = """<!DOCTYPE html>
   .explainer { background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 20px 24px; margin-top: 24px; font-size: 14px; color: #cbd5e1; line-height: 1.7; }
   .explainer strong { color: #fbbf24; }
 
-  .match { background: #1e293b; border-left: 4px solid #60a5fa; border-radius: 8px; padding: 24px; margin: 20px 0; }
-  .match-title { color: #fbbf24; font-size: 16px; font-weight: 700; margin-bottom: 4px; }
-  .match-sub { color: #94a3b8; font-size: 13px; margin-bottom: 20px; }
+  .match { background: #1e293b; border-left: 4px solid #60a5fa; border-radius: 10px; padding: 28px; margin: 24px 0; }
+  .match-title { color: #f1f5f9; font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+  .match-sub { color: #94a3b8; font-size: 13px; margin-bottom: 24px; }
+
+  .score-header { display: flex; align-items: center; gap: 20px; background: #0f172a; border: 1px solid #334155; border-radius: 10px; padding: 20px 24px; margin-bottom: 20px; }
+  .score-big { font-size: 44px; font-weight: 800; font-family: 'SF Mono', Monaco, monospace; }
+  .score-high { color: #34d399; }
+  .score-medium { color: #fbbf24; }
+  .score-low { color: #f87171; }
+  .score-meta { flex: 1; }
+  .score-label { color: #cbd5e1; font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+  .score-desc { color: #94a3b8; font-size: 12px; line-height: 1.6; }
+  .band-pill { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 11px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; margin-left: 8px; }
+  .band-high { background: rgba(52, 211, 153, 0.15); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.3); }
+  .band-medium { background: rgba(251, 191, 36, 0.15); color: #fbbf24; border: 1px solid rgba(251, 191, 36, 0.3); }
+  .band-low { background: rgba(248, 113, 113, 0.15); color: #f87171; border: 1px solid rgba(248, 113, 113, 0.3); }
 
   .section-label { color: #fbbf24; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; font-weight: 700; margin-bottom: 10px; }
-  .rationale-box { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 20px 24px; color: #f1f5f9; font-family: Georgia, serif; font-size: 16px; line-height: 1.8; }
 
-  .audit { margin-top: 24px; padding-top: 20px; border-top: 1px solid #334155; }
-  .audit .section-label { color: #64748b; }
-  .metric-row { display: flex; align-items: baseline; gap: 12px; margin: 10px 0; font-size: 13px; }
-  .metric-label { color: #94a3b8; min-width: 200px; }
-  .metric-value { color: #93c5fd; font-family: 'SF Mono', Monaco, monospace; font-weight: 600; }
-  .metric-note { color: #64748b; font-size: 12px; }
+  .rationale-box { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 20px 24px; color: #f1f5f9; font-family: Georgia, serif; font-size: 16px; line-height: 1.8; margin-bottom: 24px; }
 
-  .signal-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 12px; }
-  .signal { background: #0f172a; border: 1px solid #334155; padding: 10px 14px; border-radius: 6px; }
-  .signal-name { color: #a5f3fc; font-size: 12px; font-weight: 600; font-family: 'SF Mono', Monaco, monospace; margin-bottom: 4px; }
-  .signal-value { color: #e2e8f0; font-size: 18px; font-weight: 700; font-family: 'SF Mono', Monaco, monospace; }
-  .signal-desc { color: #64748b; font-size: 11px; margin-top: 2px; }
+  .breakdown { margin-bottom: 20px; }
+  .breakdown-label { color: #64748b; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; font-weight: 700; margin-bottom: 12px; }
+  .bar-row { margin: 10px 0; }
+  .bar-top { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; color: #cbd5e1; margin-bottom: 4px; }
+  .bar-name { font-weight: 600; }
+  .bar-name-desc { color: #94a3b8; font-weight: 400; font-size: 11px; margin-left: 8px; }
+  .bar-value { color: #93c5fd; font-family: 'SF Mono', Monaco, monospace; font-weight: 600; }
+  .bar-track { height: 6px; background: #0f172a; border-radius: 3px; overflow: hidden; border: 1px solid #334155; }
+  .bar-fill { height: 100%; background: linear-gradient(90deg, #60a5fa, #34d399); transition: width 0.3s; }
+
+  .explanation-box { background: #0f172a; border: 1px dashed #334155; border-radius: 8px; padding: 14px 18px; margin-bottom: 20px; color: #cbd5e1; font-size: 13px; font-style: italic; line-height: 1.6; }
+
+  .signal-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; margin-top: 8px; }
+  .signal { background: #0f172a; border: 1px solid #334155; padding: 8px 12px; border-radius: 6px; font-family: 'SF Mono', Monaco, monospace; font-size: 11px; color: #a5f3fc; }
 
   .skipped { border-left-color: #f87171; }
   .error { color: #f87171; }
   .loading { color: #fbbf24; padding: 20px; }
 
-  details { margin-top: 20px; }
+  details { margin-top: 24px; }
   summary { cursor: pointer; color: #64748b; font-size: 12px; }
   details pre { margin-top: 12px; background: #020617; padding: 16px; border-radius: 6px; color: #a5f3fc; font-size: 11px; overflow-x: auto; }
 </style>
@@ -96,19 +112,27 @@ TEST_PAGE_HTML = """<!DOCTYPE html>
 <div id="result"></div>
 
 <script>
+const BREAKDOWN_DESC = {
+  textSimilarity: "how similar their written content is",
+  structuredSimilarity: "how well demographics and archetypes line up",
+  trust: "prior connection level between the two",
+  readinessHarmony: "social-readiness alignment"
+};
+
 const SIGNAL_DESCRIPTIONS = {
-  "identity": "Similarity in who they are (city, job, core identity text)",
+  "identity": "Similarity in who they are (city, job, identity text)",
   "personality": "Similarity in temperament and social bravery",
-  "experience": "Similarity in life experiences and meeting context",
-  "interest": "Similarity in passions and what they are drawn to",
-  "age_proximity": "How close in age they are (1.00 = same age, falls off over 40 years)",
-  "same_city": "1.00 if both in the same city, 0 otherwise",
-  "complementary_type": "How well their conversation archetypes pair (storyteller + listener = 1.00, two of same type lower)",
-  "shared_event_count": "How many past events they have both attended",
+  "experience": "Similarity in life experiences",
+  "interest": "Similarity in passions and what they seek",
+  "age_proximity": "Closeness in age (1.00 = same age)",
+  "same_city": "1.00 if both in same city, else 0",
+  "complementary_type": "How well their conversation archetypes pair",
+  "shared_event_count": "How many past events they share",
   "connection_exists": "Whether they already know each other",
   "referral_chain": "Whether one referred the other",
   "qualification_proximity": "Similar screening depth",
-  "readiness_harmony": "Similar social readiness scores"
+  "readiness_harmony": "Similar social readiness scores",
+  "confidence": "Band assigned based on score thresholds"
 };
 
 function buildAttendee(prefix) {
@@ -132,16 +156,35 @@ function buildAttendee(prefix) {
   };
 }
 
+function renderBreakdownBars(bd) {
+  if (!bd) return "";
+  const fields = [
+    ["textSimilarity", "Text similarity"],
+    ["structuredSimilarity", "Structured similarity"],
+    ["trust", "Trust"],
+    ["readinessHarmony", "Readiness harmony"]
+  ];
+  let html = '<div class="breakdown"><div class="breakdown-label">Score breakdown</div>';
+  for (const [key, label] of fields) {
+    const v = bd[key] || 0;
+    const pct = (v * 100).toFixed(0);
+    html += '<div class="bar-row">';
+    html += '<div class="bar-top"><div><span class="bar-name">' + label + '</span><span class="bar-name-desc">' + (BREAKDOWN_DESC[key] || "") + '</span></div>';
+    html += '<div class="bar-value">' + v.toFixed(3) + '</div></div>';
+    html += '<div class="bar-track"><div class="bar-fill" style="width:' + pct + '%"></div></div>';
+    html += '</div>';
+  }
+  html += '</div>';
+  return html;
+}
+
 function renderSignals(signals) {
-  let html = '<div class="signal-grid">';
+  if (!signals || !signals.length) return "";
+  let html = '<div class="breakdown-label">Raw signals (audit)</div><div class="signal-grid">';
   for (const s of signals) {
     const [name, val] = s.split(':');
     const desc = SIGNAL_DESCRIPTIONS[name] || '';
-    html += '<div class="signal">';
-    html += '<div class="signal-name">' + name + '</div>';
-    html += '<div class="signal-value">' + val + '</div>';
-    if (desc) html += '<div class="signal-desc">' + desc + '</div>';
-    html += '</div>';
+    html += '<div class="signal" title="' + desc + '">' + s + '</div>';
   }
   html += '</div>';
   return html;
@@ -154,7 +197,7 @@ async function runTest() {
   if (!key) { out.innerHTML = '<div class="error">Paste your API key above first.</div>'; return; }
 
   btn.disabled = true;
-  out.innerHTML = '<div class="loading">Running... takes 10–30 seconds.</div>';
+  out.innerHTML = '<div class="loading">Running... takes 10-30 seconds.</div>';
 
   const runId = crypto.randomUUID();
   const payload = {
@@ -190,48 +233,47 @@ async function runTest() {
 
     const pairs = data.pairs || [];
     const skipped = data.skipped || [];
-
     let html = '';
 
     if (pairs.length) {
-      html += '<div class="explainer">';
-      html += '<strong>How to read this:</strong> Each card below is one match suggestion. A mutual match produces TWO cards — one written for each side, because the rationale addresses each person directly. ';
-      html += 'The yellow box is the ONLY thing your members actually see. Everything in the Internal Audit section is metadata you can store but never render to members.';
-      html += '</div>';
+      html += '<div class="explainer"><strong>How to read this:</strong> Each card is one match. A mutual match produces TWO cards because the rationale is addressed to each side. The big number on top is the 0-1 compatibility score (green = strong, yellow = moderate, red = weak). The Georgia-serif box is what Blind 8 members actually read. Everything below is internal audit data.</div>';
     }
 
     for (const p of pairs) {
+      const band = p.confidence || "medium";
+      const scoreColor = band === "high" ? "score-high" : (band === "medium" ? "score-medium" : "score-low");
+      const pillColor = band === "high" ? "band-high" : (band === "medium" ? "band-medium" : "band-low");
+      const bd = p.scoreBreakdown || {};
+
       html += '<div class="match">';
-      html += '<div class="match-title">' + p.memberId + ' → will be shown ' + p.partnerId + '</div>';
-      html += '<div class="match-sub">Rank ' + p.rank + ' match · each member receives up to 2 rationales per event</div>';
+      html += '<div class="match-title">' + p.memberId + ' will be shown ' + p.partnerId + '</div>';
+      html += '<div class="match-sub">Rank ' + p.rank + ' of up to 2 per member</div>';
+
+      html += '<div class="score-header">';
+      html += '<div class="score-big ' + scoreColor + '">' + p.compatibilityScore.toFixed(2) + '</div>';
+      html += '<div class="score-meta">';
+      html += '<div class="score-label">Compatibility <span class="band-pill ' + pillColor + '">' + band + '</span></div>';
+      html += '<div class="score-desc">0-1 range. Thresholds: high >= 0.70, medium 0.45-0.70, low < 0.45. Based on 0.7 x text similarity + 0.3 x structured similarity.</div>';
+      html += '</div></div>';
+
+      if (bd.explanation) {
+        html += '<div class="explanation-box">' + bd.explanation + '</div>';
+      }
 
       html += '<div class="section-label">What the member reads</div>';
       html += '<div class="rationale-box">' + p.rationale + '</div>';
 
-      html += '<div class="audit">';
-      html += '<div class="section-label">Internal audit (not rendered)</div>';
-
-      html += '<div class="metric-row">';
-      html += '<div class="metric-label">Compatibility score:</div>';
-      html += '<div class="metric-value">' + p.compatibilityScore.toFixed(4) + '</div>';
-      html += '<div class="metric-note">0–1 range · store for analysis, never show to members</div>';
+      html += renderBreakdownBars(bd);
+      html += renderSignals(p.signals);
       html += '</div>';
-
-      html += '<div class="metric-row" style="display:block">';
-      html += '<div class="metric-label" style="margin-bottom:8px">Signals that produced the match:</div>';
-      html += renderSignals(p.signals || []);
-      html += '</div>';
-
-      html += '</div></div>';
     }
 
     for (const s of skipped) {
       html += '<div class="match skipped">';
       html += '<div class="match-title" style="color:#f87171">' + s.memberId + ' was skipped</div>';
-      html += '<div class="match-sub">Reason: ' + s.reason + (s.note ? ' · ' + s.note : '') + '</div>';
-      html += '<div style="color:#cbd5e1;margin-top:14px;font-size:13px;line-height:1.7">';
-      html += 'This member will not receive a suggestion for this event. Possible reasons: not enough screening text to reason over, all potential partners were on the exclusion list, or the rationale writer could not produce prose that passed voice validation after 5 tries.';
-      html += '</div></div>';
+      html += '<div class="match-sub">Reason: ' + s.reason + (s.note ? ' - ' + s.note : '') + '</div>';
+      html += '<div style="color:#cbd5e1;margin-top:14px;font-size:13px;line-height:1.7">This member receives no suggestion. Possible reasons: not enough screening text to reason over, all potential partners were excluded, or the rationale writer could not produce prose that passed voice validation after 5 tries.</div>';
+      html += '</div>';
     }
 
     if (!html) html = '<div class="error">No pairs and no skips returned.</div>';

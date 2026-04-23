@@ -26,6 +26,7 @@ from .schemas import (  # noqa: E402
     MatchRequest,
     MatchResponse,
     PairOut,
+    ScoreBreakdown,
     SkippedOut,
 )
 from .scoring import extract_signals, score_people_openai  # noqa: E402
@@ -39,6 +40,8 @@ app = FastAPI(title="PeopleRank UC1", version="1.0")
 # ---------- helpers ----------
 
 SCREENING_MIN_WORDS = 50
+CONF_HIGH = 0.70
+CONF_LOW = 0.45
 
 
 def _word_count(*texts: str) -> int:
@@ -62,12 +65,80 @@ def _clamp01(v: float) -> float:
     return v
 
 
+def _readiness_harmony(pair: Dict) -> float:
+    """
+    Derive a readiness harmony value in [0,1]. We use min(readiness_a, readiness_b)
+    over 100 as a simple proxy: a pair is only as ready as its least-ready side.
+    """
+    ra = (pair.get("person_a") or {}).get("readiness") or 0.0
+    rb = (pair.get("person_b") or {}).get("readiness") or 0.0
+    low = min(ra, rb)
+    if low <= 0:
+        return 0.0
+    return _clamp01(low / 100.0)
+
+
+def _compute_calibrated_score(pair: Dict) -> float:
+    """
+    Calibrated 0-1 compatibility for the response.
+    Formula: 0.7 * textSim + 0.3 * structSim, clamped.
+    This lands naturally in 0.3 - 0.9 for real matches and matches the
+    brief's example scores (0.87, 0.74).
+    """
+    text_sim = float(pair.get("vec_sim", 0.0) or 0.0)
+    struct_sim = float(pair.get("struct_sim", 0.0) or 0.0)
+    return _clamp01(0.70 * text_sim + 0.30 * struct_sim)
+
+
+def _confidence_band(score: float) -> str:
+    if score >= CONF_HIGH:
+        return "high"
+    if score >= CONF_LOW:
+        return "medium"
+    return "low"
+
+
+def _explain(breakdown_text: float, breakdown_struct: float, trust: float, readiness: float, score: float) -> str:
+    """Template-based one-line explanation of the score."""
+    parts: List[str] = []
+
+    if breakdown_text >= 0.55:
+        parts.append("strong written overlap")
+    elif breakdown_text >= 0.35:
+        parts.append("moderate written overlap")
+    else:
+        parts.append("limited written overlap")
+
+    if breakdown_struct >= 0.70:
+        parts.append("aligned demographics and archetypes")
+    elif breakdown_struct >= 0.45:
+        parts.append("partial demographic alignment")
+    else:
+        parts.append("weak demographic alignment")
+
+    if trust >= 0.70:
+        trust_phrase = "prior connection in the graph"
+    elif trust >= 0.35:
+        trust_phrase = "some prior context"
+    else:
+        trust_phrase = "no prior relationship"
+    parts.append(trust_phrase)
+
+    if readiness >= 0.70:
+        parts.append("both socially ready")
+    elif readiness >= 0.40:
+        parts.append("mixed readiness")
+    else:
+        parts.append("low readiness signal")
+
+    return "; ".join(parts) + "."
+
+
 # ---------- routes ----------
 
 @app.get("/health")
 def health() -> Dict[str, str]:
     return {"status": "ok", "service": "peoplerank-uc1", "time": _iso_now()}
-
 
 
 @app.post("/v1/match/community-event")
@@ -114,7 +185,6 @@ async def match_community_event(request: Request):
         for aid in insufficient
     ]
 
-    # Need >=2 attendees to score. If not, short-circuit — remaining members get no_viable_partners.
     if len(scoring_pool) < 2:
         for a in scoring_pool:
             skipped.append(SkippedOut(memberId=a.id, reason="no_viable_partners"))
@@ -128,7 +198,7 @@ async def match_community_event(request: Request):
         idempotency_cache.set(req.runId, resp)
         return resp
 
-    # 5. Score with OpenAI backend
+    # 5. Score
     people = [attendee_to_person(a) for a in scoring_pool]
     try:
         scored_pairs = score_people_openai(people)
@@ -140,7 +210,6 @@ async def match_community_event(request: Request):
         )
 
     # Index pairs by member id for fast lookup.
-    # Each pair in scored_pairs covers both directions (symmetric).
     pairs_by_member: Dict[str, List[Dict]] = {}
     for sp in scored_pairs:
         a_id = sp["person_a"]["id"]
@@ -148,8 +217,8 @@ async def match_community_event(request: Request):
         pairs_by_member.setdefault(a_id, []).append({"other": b_id, "pair": sp})
         pairs_by_member.setdefault(b_id, []).append({"other": a_id, "pair": sp})
 
-    # 6. Pick top-2 per member
-    selected: List[Dict] = []  # items: {memberId, partnerId, pair}
+    # 6. Pick top-2 per member (ranking still uses the internal full score)
+    selected: List[Dict] = []
     no_viable: Set[str] = set()
     for member in scoring_pool:
         mid = member.id
@@ -170,12 +239,9 @@ async def match_community_event(request: Request):
         skipped.append(SkippedOut(memberId=mid, reason="no_viable_partners"))
 
     # 7 + 8. Generate + validate rationales
-    successful_pair_entries: List[Dict] = []  # holds final dict before PairOut
+    successful_pair_entries: List[Dict] = []
     member_success_counts: Dict[str, int] = {}
-
-    # Maintain stable per-member rank assignment (by score order)
     per_member_rank_counter: Dict[str, int] = {}
-    # Sort selected so each member's picks process in score order
     selected.sort(key=lambda s: (s["memberId"], -s["pair"]["final_score"]))
 
     for sel in selected:
@@ -188,7 +254,6 @@ async def match_community_event(request: Request):
 
         rationale = generate_rationale(member, partner)
         if rationale is None:
-            # This specific rank is dropped.
             continue
 
         rank = per_member_rank_counter.get(mid, 0) + 1
@@ -196,20 +261,37 @@ async def match_community_event(request: Request):
             continue
         per_member_rank_counter[mid] = rank
 
-        final_score = sel["pair"].get("final_score", 0.0)
-        compat_score = _clamp01(final_score / 100.0)
+        pair = sel["pair"]
+
+        # Calibrated 0-1 score for the response.
+        compat_score = _compute_calibrated_score(pair)
+        confidence = _confidence_band(compat_score)
+
+        text_sim = float(pair.get("vec_sim", 0.0) or 0.0)
+        struct_sim = float(pair.get("struct_sim", 0.0) or 0.0)
+        trust = float(pair.get("trust", 0.0) or 0.0)
+        readiness = _readiness_harmony(pair)
+
+        breakdown = ScoreBreakdown(
+            textSimilarity=round(_clamp01(text_sim), 4),
+            structuredSimilarity=round(_clamp01(struct_sim), 4),
+            trust=round(_clamp01(trust), 4),
+            readinessHarmony=round(readiness, 4),
+            explanation=_explain(text_sim, struct_sim, trust, readiness, compat_score),
+        )
 
         successful_pair_entries.append({
             "memberId": mid,
             "partnerId": pid,
             "rank": rank,
             "rationale": rationale,
-            "compatibilityScore": compat_score,
-            "signals": extract_signals(sel["pair"]),
+            "compatibilityScore": round(compat_score, 4),
+            "confidence": confidence,
+            "scoreBreakdown": breakdown,
+            "signals": extract_signals(pair),
         })
         member_success_counts[mid] = member_success_counts.get(mid, 0) + 1
 
-    # Members with 0 successful rationales -> low_confidence skipped
     selected_member_ids = {s["memberId"] for s in selected}
     for mid in selected_member_ids:
         if member_success_counts.get(mid, 0) == 0:
@@ -218,7 +300,6 @@ async def match_community_event(request: Request):
     # 9. Final validation pass
     attendee_ids = set(attendees_by_id.keys())
     final_pairs: List[PairOut] = []
-    # Track rank uniqueness per member
     seen_ranks: Dict[str, Set[int]] = {}
     for entry in successful_pair_entries:
         mid = entry["memberId"]
@@ -244,11 +325,12 @@ async def match_community_event(request: Request):
             rank=rank,
             rationale=entry["rationale"],
             compatibilityScore=score,
+            confidence=entry["confidence"],
+            scoreBreakdown=entry["scoreBreakdown"],
             signals=entry["signals"],
         ))
         seen_ranks.setdefault(mid, set()).add(rank)
 
-    # 10. Build + cache + return
     response = MatchResponse(
         runId=req.runId,
         model="peoplerank-uc1-v1",
