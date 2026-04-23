@@ -19,10 +19,19 @@ TEST_PAGE_HTML = """<!DOCTYPE html>
   button:hover { background: #1d4ed8; }
   button:disabled { background: #475569; cursor: not-allowed; }
   #result { background: #020617; border: 1px solid #334155; border-radius: 10px; padding: 20px; margin-top: 24px; white-space: pre-wrap; font-family: 'SF Mono', Monaco, monospace; font-size: 12px; line-height: 1.6; color: #a5f3fc; max-height: 500px; overflow-y: auto; }
-  .pair { background: #1e293b; border-left: 3px solid #60a5fa; padding: 16px 20px; margin: 10px 0; border-radius: 6px; }
-  .pair-header { color: #94a3b8; font-size: 11px; letter-spacing: 1px; margin-bottom: 8px; text-transform: uppercase; }
-  .rationale { color: #e2e8f0; font-size: 14px; line-height: 1.7; font-family: Georgia, serif; }
-  .score { color: #60a5fa; font-size: 11px; margin-top: 8px; }
+  .pair { background: #1e293b; border-left: 3px solid #60a5fa; padding: 20px 24px; margin: 14px 0; border-radius: 8px; }
+  .pair-header { color: #e2e8f0; font-size: 15px; margin-bottom: 6px; font-weight: 600; }
+  .pair-sub { color: #94a3b8; font-size: 12px; margin-bottom: 14px; }
+  .what-member-sees { color: #fbbf24; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 8px; font-weight: 700; }
+  .rationale { color: #f1f5f9; font-size: 15px; line-height: 1.75; font-family: Georgia, serif; padding: 14px 18px; background: #0f172a; border-radius: 6px; border: 1px solid #334155; }
+  .audit { margin-top: 14px; padding-top: 14px; border-top: 1px solid #334155; }
+  .audit-label { color: #64748b; font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 6px; }
+  .audit-row { color: #cbd5e1; font-size: 12px; line-height: 1.8; }
+  .audit-row code { background: #020617; padding: 1px 6px; border-radius: 3px; color: #93c5fd; font-size: 11px; }
+  .signal { display: inline-block; background: #0f172a; border: 1px solid #334155; padding: 2px 8px; border-radius: 4px; margin: 2px 4px 2px 0; font-size: 11px; color: #a5f3fc; font-family: 'SF Mono', Monaco, monospace; }
+  .explainer { background: #1e293b; border: 1px solid #334155; border-radius: 8px; padding: 16px 20px; margin: 20px 0; font-size: 13px; color: #cbd5e1; line-height: 1.7; }
+  .explainer strong { color: #fbbf24; }
+  .score-badge { display: inline-block; background: #0f172a; border: 1px solid #334155; padding: 3px 10px; border-radius: 4px; color: #93c5fd; font-size: 11px; font-family: 'SF Mono', Monaco, monospace; }
   .loading { color: #fbbf24; }
   .error { color: #f87171; }
 </style>
