@@ -69,6 +69,33 @@ def health() -> Dict[str, str]:
     return {"status": "ok", "service": "peoplerank-uc1", "time": _iso_now()}
 
 
+@app.get("/diag/openai")
+async def diag_openai():
+    import os
+    import traceback
+    from openai import OpenAI
+    try:
+        client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+        resp = client.embeddings.create(
+            model="text-embedding-3-large",
+            input=["hello world"]
+        )
+        return {
+            "ok": True,
+            "model": resp.model,
+            "dim": len(resp.data[0].embedding),
+            "key_prefix": (os.environ.get("OPENAI_API_KEY") or "")[:10],
+        }
+    except Exception as e:
+        return {
+            "ok": False,
+            "error_type": type(e).__name__,
+            "error_message": str(e),
+            "traceback": traceback.format_exc(),
+            "key_prefix": (os.environ.get("OPENAI_API_KEY") or "")[:10],
+        }
+
+
 @app.post("/v1/match/community-event")
 async def match_community_event(request: Request):
     # 1. Auth
