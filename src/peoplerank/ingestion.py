@@ -41,6 +41,11 @@ class Person:
     experience_text: str = ""
     interest_text: str = ""
 
+    # Isolated bravery source (matches only the socialBravery field, not the
+    # concatenated personality blob). Used by compute_bravery so keyword
+    # density stays discriminative.
+    bravery_text: str = ""
+
     # Behavioral signals
     attendance_ratio: float = 0.5  # events attended / invited
     feedback_ratio: float = 0.0    # feedbacks submitted / events attended
@@ -379,6 +384,9 @@ def blind8_adapter(data: dict, *, blind: bool = False) -> List[Person]:
         if p._notes:
             pp.append(f"Notes: {p._notes}.")
         p.personality_text = _clean(" ".join(pp))
+
+        # Isolated bravery source — ONLY the socialBravery field.
+        p.bravery_text = _clean(p._social_bravery)
 
         # Experience text
         pe = []
