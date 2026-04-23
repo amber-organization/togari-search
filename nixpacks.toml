@@ -2,10 +2,10 @@
 nixPkgs = ["python311", "gcc"]
 
 [phases.install]
-cmds = ["python -m venv /opt/venv", ". /opt/venv/bin/activate && pip install --upgrade pip && pip install -r requirements.txt"]
+cmds = ["python -m venv /opt/venv", "/opt/venv/bin/pip install --upgrade pip", "/opt/venv/bin/pip install -r requirements.txt"]
 
 [phases.build]
-cmds = ["echo 'skip build'"]
+cmds = ["/opt/venv/bin/pip --version"]
 
 [start]
-cmd = ". /opt/venv/bin/activate && uvicorn api.main:app --host 0.0.0.0 --port $PORT"
+cmd = "/opt/venv/bin/uvicorn api.main:app --host 0.0.0.0 --port $PORT"
