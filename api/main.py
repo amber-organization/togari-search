@@ -313,3 +313,9 @@ async def diag_claude():
             "traceback": traceback.format_exc(),
             "key_prefix": (os.environ.get("ANTHROPIC_API_KEY") or "")[:15],
         }
+
+
+@app.get("/test")
+async def test_harness():
+    from .test_page import test_page
+    return test_page()
