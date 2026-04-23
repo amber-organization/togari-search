@@ -285,3 +285,31 @@ async def match_community_event(request: Request):
 
     idempotency_cache.set(req.runId, response)
     return response
+
+@app.get("/diag/claude")
+async def diag_claude():
+    import os
+    import traceback
+    from anthropic import Anthropic
+    try:
+        client = Anthropic(api_key=os.environ.get("ANTHROPIC_API_KEY"))
+        resp = client.messages.create(
+            model="claude-sonnet-4-5",
+            max_tokens=200,
+            messages=[{"role": "user", "content": "Write one sentence describing a paralegal."}]
+        )
+        text = resp.content[0].text if resp.content else ""
+        return {
+            "ok": True,
+            "model": resp.model,
+            "output": text,
+            "key_prefix": (os.environ.get("ANTHROPIC_API_KEY") or "")[:15],
+        }
+    except Exception as e:
+        return {
+            "ok": False,
+            "error_type": type(e).__name__,
+            "error_message": str(e),
+            "traceback": traceback.format_exc(),
+            "key_prefix": (os.environ.get("ANTHROPIC_API_KEY") or "")[:15],
+        }
