@@ -5,7 +5,7 @@ nixPkgs = ["python311", "gcc"]
 cmds = ["python -m venv /opt/venv", ". /opt/venv/bin/activate && pip install --upgrade pip && pip install -r requirements.txt"]
 
 [phases.build]
-cmds = []
+cmds = ["echo 'skip build'"]
 
 [start]
 cmd = ". /opt/venv/bin/activate && uvicorn api.main:app --host 0.0.0.0 --port $PORT"
