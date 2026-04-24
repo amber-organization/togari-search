@@ -238,21 +238,39 @@ async def match_community_event(request: Request):
     for mid in no_viable:
         skipped.append(SkippedOut(memberId=mid, reason="no_viable_partners"))
 
-    # 7 + 8. Generate + validate rationales
+    # 7 + 8. Generate + validate rationales (in parallel)
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
     successful_pair_entries: List[Dict] = []
     member_success_counts: Dict[str, int] = {}
     per_member_rank_counter: Dict[str, int] = {}
     selected.sort(key=lambda s: (s["memberId"], -s["pair"]["final_score"]))
 
-    for sel in selected:
+    # Fire all rationale calls in parallel, up to 10 concurrent
+    def _gen(sel):
         mid = sel["memberId"]
         pid = sel["partnerId"]
         member = attendees_by_id.get(mid)
         partner = attendees_by_id.get(pid)
         if member is None or partner is None:
-            continue
-
+            return None
         rationale = generate_rationale(member, partner)
+        return (sel, rationale)
+
+    rationale_results: List[tuple] = []
+    with ThreadPoolExecutor(max_workers=10) as pool:
+        futures = [pool.submit(_gen, sel) for sel in selected]
+        for fut in as_completed(futures):
+            result = fut.result()
+            if result is not None:
+                rationale_results.append(result)
+
+    # Preserve original ordering: sort results by (memberId, -score)
+    rationale_results.sort(key=lambda r: (r[0]["memberId"], -r[0]["pair"]["final_score"]))
+
+    for sel, rationale in rationale_results:
+        mid = sel["memberId"]
+        pid = sel["partnerId"]
         if rationale is None:
             continue
 
@@ -263,7 +281,6 @@ async def match_community_event(request: Request):
 
         pair = sel["pair"]
 
-        # Calibrated 0-1 score for the response.
         compat_score = _compute_calibrated_score(pair)
         confidence = _confidence_band(compat_score)
 
