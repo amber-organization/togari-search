@@ -208,7 +208,6 @@ def build_user_prompt(member: Attendee, partner: Attendee) -> str:
         f"{_fmt_person_block(member)}\n\n"
         "PARTNER (the person being suggested):\n"
         f"{_fmt_person_block(partner)}\n\n"
-        f"{FIVE_EXAMPLES}\n\n"
         "Now write the rationale."
     )
 
@@ -235,7 +234,13 @@ def _call_claude(user_prompt: str) -> str:
         model=MODEL_ID,
         max_tokens=MAX_TOKENS,
         temperature=TEMPERATURE,
-        system=SYSTEM_PROMPT,
+        system=[
+            {
+                "type": "text",
+                "text": SYSTEM_PROMPT + "\n\n" + FIVE_EXAMPLES,
+                "cache_control": {"type": "ephemeral"},
+            }
+        ],
         messages=[{"role": "user", "content": user_prompt}],
     )
     out = "".join(
