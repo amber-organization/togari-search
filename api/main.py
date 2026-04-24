@@ -30,6 +30,7 @@ from .schemas import (  # noqa: E402
     SkippedOut,
 )
 from .scoring import extract_signals, score_people_openai  # noqa: E402
+from .matching import select_mutual_pairs, assignments_from_pairs  # noqa: E402
 
 logger = logging.getLogger("peoplerank.api")
 logging.basicConfig(level=logging.INFO)
