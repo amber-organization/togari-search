@@ -54,12 +54,36 @@ Example 5:
 You both moved from a job you loved for a reason you do not fully want to explain yet. She left publishing in March. You left teaching in June. If you want to skip the small talk, start with whichever one of you is more tired today."""
 
 
-BANNED_PHRASES = [
-    "might", "could be", "potentially", "seems to", "likely",
-    "not just", "in a world where", "dynamic blend", "perfect match",
-    "shared passion for", "unique opportunity", "rich tapestry",
-    "here is why", "this match stands out", "what makes this special",
-    "leverage", "align", "embrace", "curate",
+# Banned as full substrings: these are AI-tell phrases that should never appear naturally
+BANNED_SUBSTRINGS = [
+    "in a world where", "dynamic blend", "perfect match",
+    "rich tapestry", "here is why", "this match stands out",
+    "what makes this special", "could be potentially", "seems to likely",
+]
+
+# Banned only when matching a specific regex pattern (avoids false positives on common words)
+# Each entry: (pattern, human_reason)
+BANNED_PATTERNS = [
+    # "not just X but Y" structure — the real AI tell
+    (r"\bnot just\b[^.!?]*\bbut\b", "not_just_but"),
+    # Hedge words, as whole words only
+    (r"\bmight be\b", "might_be"),
+    (r"\bcould be\b", "could_be"),
+    (r"\bpotentially\b", "potentially"),
+    (r"\bseems to\b", "seems_to"),
+    # Corporate verbs only as standalone words
+    (r"\bleverage\b", "leverage"),
+    (r"\bleveraging\b", "leveraging"),
+    (r"\balign with\b", "align_with"),
+    (r"\baligned with\b", "aligned_with"),
+    (r"\balignment with\b", "alignment_with"),
+    (r"\bembrace\b", "embrace"),
+    (r"\bembraces\b", "embraces"),
+    (r"\bembracing\b", "embracing"),
+    # "shared passion for" — exact phrase
+    (r"\bshared passion for\b", "shared_passion_for"),
+    # "unique opportunity" — exact phrase
+    (r"\bunique opportunity\b", "unique_opportunity"),
 ]
 
 # Common first names we should flag if they appear followed by Title Case.
@@ -127,9 +151,12 @@ def validate_rationale(text: str) -> Tuple[bool, str]:
     if not (2 <= len(sentences) <= 7):
         return False, f"sentence_count:{len(sentences)}"
     lower = text.lower()
-    for phrase in BANNED_PHRASES:
-        if phrase in lower:
-            return False, f"banned:{phrase}"
+    for sub in BANNED_SUBSTRINGS:
+        if sub in lower:
+            return False, f"banned_sub:{sub}"
+    for pattern, reason in BANNED_PATTERNS:
+        if re.search(pattern, lower):
+            return False, f"banned_pat:{reason}"
     if _has_person_name(text):
         return False, "person_name_detected"
     return True, "ok"
