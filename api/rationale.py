@@ -250,6 +250,42 @@ def _call_claude(user_prompt: str) -> str:
     return out
 
 
+def scrub_ai_tells(text: str) -> str:
+    """Strip em-dashes, smart quotes, and common AI writing tells. Applied to every rationale."""
+    if not text:
+        return text
+    # Smart quotes to straight quotes
+    text = text.replace("\u201c", '"').replace("\u201d", '"')
+    text = text.replace("\u2018", "'").replace("\u2019", "'")
+    # Em-dash and en-dash to comma (reads natural, matches voice rules)
+    text = text.replace("\u2014", ", ").replace("\u2013", ", ")
+    # Double hyphen used as em-dash
+    text = re.sub(r"\s--\s", ", ", text)
+    text = re.sub(r"(?<=\w)--(?=\w)", ", ", text)
+    # Strip common AI hedge phrases that slip past the prompt
+    ai_phrases = [
+        r"\bIt's worth noting that\s*",
+        r"\bThat said,?\s*",
+        r"\bMoreover,?\s*",
+        r"\bFurthermore,?\s*",
+        r"\bIn essence,?\s*",
+        r"\bUltimately,?\s*",
+        r"\bAt the end of the day,?\s*",
+    ]
+    for pat in ai_phrases:
+        text = re.sub(pat, "", text, flags=re.IGNORECASE)
+    # Collapse double commas and whitespace introduced by substitutions
+    text = re.sub(r",\s*,", ",", text)
+    text = re.sub(r"\s+,", ",", text)
+    text = re.sub(r"\s+\.", ".", text)
+    text = re.sub(r"\s{2,}", " ", text)
+    # Capitalize first letter if we trimmed a leading phrase
+    text = text.strip()
+    if text and text[0].islower():
+        text = text[0].upper() + text[1:]
+    return text
+
+
 def generate_rationale(
     member: Attendee,
     partner: Attendee,
@@ -265,6 +301,7 @@ def generate_rationale(
         except Exception as e:
             logger.warning("rationale %s attempt %d api_error: %s", pair_tag, attempt, e)
             continue
+        text = scrub_ai_tells(text)
         last_text = text
         ok, reason = validate_rationale(text)
         if ok:
