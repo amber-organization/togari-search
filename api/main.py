@@ -40,7 +40,7 @@ app = FastAPI(title="PeopleRank UC1", version="1.0")
 
 # ---------- helpers ----------
 
-SCREENING_MIN_WORDS = 25
+SCREENING_MIN_WORDS = 0
 CONF_HIGH = 0.70
 CONF_LOW = 0.45
 

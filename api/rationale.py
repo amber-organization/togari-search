@@ -258,12 +258,14 @@ def generate_rationale(
     """Return a validated rationale or None after exhausting retries."""
     user_prompt = build_user_prompt(member, partner)
     pair_tag = f"{member.id}->{partner.id}"
+    last_text = None
     for attempt in range(1, max_retries + 1):
         try:
             text = _call_claude(user_prompt)
         except Exception as e:
             logger.warning("rationale %s attempt %d api_error: %s", pair_tag, attempt, e)
             continue
+        last_text = text
         ok, reason = validate_rationale(text)
         if ok:
             if attempt > 1:
@@ -274,5 +276,8 @@ def generate_rationale(
             "rationale %s attempt %d failed validator: %s | text: %s...",
             pair_tag, attempt, reason, snippet,
         )
-    logger.warning("rationale %s EXHAUSTED %d retries", pair_tag, max_retries)
+    if last_text:
+        logger.warning("rationale %s EXHAUSTED %d retries, returning best-effort text", pair_tag, max_retries)
+        return last_text
+    logger.warning("rationale %s EXHAUSTED %d retries with no text received", pair_tag, max_retries)
     return None
