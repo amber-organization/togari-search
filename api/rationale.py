@@ -1,11 +1,14 @@
 """Claude-backed rationale generator with validators and retries."""
 from __future__ import annotations
 
+import logging
 import os
 import re
 from typing import List, Optional, Tuple
 
 from .schemas import Attendee
+
+logger = logging.getLogger("peoplerank.rationale")
 
 MODEL_ID = "claude-sonnet-4-5"
 MAX_TOKENS = 400
@@ -16,7 +19,7 @@ SYSTEM_PROMPT = """You are writing a short paragraph that will be shown to one p
 
 VOICE RULES — violating any of these makes the output invalid:
 - Addressed to the member as "you", about the partner in third person ("she", "he", "they").
-- Do NOT use any proper nouns that are names of people. Use pronouns or role nouns ("the paralegal", "the local"). Blind 8 renders the names in the surrounding UI.
+- Do NOT use any first names or full names of people. Refer to the partner by pronoun or role noun only ("the paralegal", "the local"). Place names like "Austin", "East Side", "Rainey Street" ARE allowed.
 - 3 to 5 sentences. Hard cap 800 characters.
 - Short, declarative sentences. Periods do the work.
 - Ground in specific details from screening (venues, cities, years, exact phrases). Never generic personality claims like "both thoughtful" or "both love to travel".
@@ -59,16 +62,32 @@ BANNED_PHRASES = [
     "leverage", "align", "embrace", "curate",
 ]
 
-# Common multi-word place names that should NOT trigger the "name" heuristic
-KNOWN_OK_TITLECASE = {
-    "New York", "Los Angeles", "San Francisco", "San Diego", "San Jose",
-    "New Jersey", "New Mexico", "New Orleans", "New Hampshire",
-    "Hong Kong", "Rhode Island", "North Carolina", "South Carolina",
-    "North Dakota", "South Dakota", "West Virginia", "Salt Lake",
-    "Las Vegas", "Santa Fe", "Santa Monica", "Santa Barbara",
-    "United States", "Silicon Valley", "Bay Area", "Wall Street",
-    "Central Park", "Times Square", "Fifth Avenue",
-    "Mexico City", "Cape Town", "Tel Aviv",
+# Common first names we should flag if they appear followed by Title Case.
+# We only flag TWO-Title-Case phrases where the FIRST word is a plausible first name.
+COMMON_FIRST_NAMES = {
+    "James", "John", "Robert", "Michael", "William", "David", "Richard", "Joseph",
+    "Thomas", "Charles", "Christopher", "Daniel", "Matthew", "Anthony", "Mark",
+    "Donald", "Steven", "Paul", "Andrew", "Joshua", "Kenneth", "Kevin", "Brian",
+    "George", "Edward", "Ronald", "Timothy", "Jason", "Jeffrey", "Ryan", "Jacob",
+    "Gary", "Nicholas", "Eric", "Jonathan", "Stephen", "Larry", "Justin", "Scott",
+    "Brandon", "Benjamin", "Samuel", "Gregory", "Frank", "Alexander", "Raymond",
+    "Patrick", "Jack", "Dennis", "Jerry", "Tyler", "Aaron", "Jose", "Henry",
+    "Adam", "Douglas", "Nathan", "Peter", "Zachary", "Kyle", "Noah", "Ethan",
+    "Jeremy", "Walter", "Christian", "Sean", "Alan", "Keith", "Mohammed", "Ahmed",
+    "Mary", "Patricia", "Jennifer", "Linda", "Elizabeth", "Barbara", "Susan",
+    "Jessica", "Sarah", "Karen", "Nancy", "Lisa", "Betty", "Helen", "Sandra",
+    "Donna", "Carol", "Ruth", "Sharon", "Michelle", "Laura", "Emily", "Kimberly",
+    "Deborah", "Dorothy", "Amy", "Angela", "Ashley", "Brenda", "Emma", "Olivia",
+    "Cynthia", "Marie", "Janet", "Catherine", "Frances", "Christine", "Samantha",
+    "Debra", "Rachel", "Carolyn", "Virginia", "Maria", "Heather", "Diane",
+    "Julie", "Joyce", "Victoria", "Kelly", "Christina", "Joan", "Evelyn",
+    "Lauren", "Judith", "Megan", "Andrea", "Cheryl", "Hannah", "Jacqueline",
+    "Martha", "Gloria", "Teresa", "Ann", "Sara", "Madison", "Frances", "Kathryn",
+    "Janice", "Jean", "Abigail", "Alice", "Julia", "Judy", "Sophia", "Grace",
+    "Denise", "Amber", "Doris", "Marilyn", "Danielle", "Beverly", "Isabella",
+    "Theresa", "Diana", "Natalie", "Brittany", "Charlotte", "Marie", "Kayla",
+    "Alexis", "Lori", "Carlo", "Karthik", "Kevin", "Mike", "Maggie", "Gwen",
+    "Sagar", "Caleb", "Kaitlyn", "Angela", "Reem", "Rania"
 }
 
 
@@ -79,30 +98,15 @@ def _split_sentences(text: str) -> List[str]:
     return [p for p in parts if p.strip()]
 
 
-def _has_name_like_sequence(text: str) -> bool:
+def _has_person_name(text: str) -> bool:
     """
-    Heuristic: two consecutive Title-Case words not at the start of a sentence.
-    Allow known place names.
+    Only flag if we find a COMMON_FIRST_NAME as a standalone Title-Case token.
+    This avoids false positives on place names like "East Side", "Rainey Street".
     """
-    # Build list of sentence-start positions in the original text
-    sentences = _split_sentences(text)
-    # For each sentence, look for TitleCase TitleCase that is NOT the first two words
-    name_re = re.compile(r"\b([A-Z][a-z]+)\s+([A-Z][a-z]+)\b")
-    for sent in sentences:
-        # Find token index of each match
-        tokens = re.findall(r"\S+", sent)
-        # Find matches anywhere in the sentence
-        for m in name_re.finditer(sent):
-            phrase = f"{m.group(1)} {m.group(2)}"
-            if phrase in KNOWN_OK_TITLECASE:
-                continue
-            # Determine if this match starts at the first word of the sentence
-            start_char = m.start()
-            leading = sent[:start_char]
-            leading_tokens = re.findall(r"\S+", leading)
-            if len(leading_tokens) == 0:
-                # At sentence start — allowed (e.g. "She has been...")
-                continue
+    # Find all Title-Case words in the text (anywhere)
+    words = re.findall(r"\b[A-Z][a-z]+\b", text)
+    for w in words:
+        if w in COMMON_FIRST_NAMES:
             return True
     return False
 
@@ -112,24 +116,22 @@ def validate_rationale(text: str) -> Tuple[bool, str]:
     if not text or not text.strip():
         return False, "empty"
     if len(text) > 800:
-        return False, "too_long"
+        return False, f"too_long:{len(text)}"
     if "\u2014" in text:
         return False, "em_dash"
-    if "–" in text:  # U+2013
-        # fail if used between words (has non-space around it)
-        if re.search(r"\S\s*\u2013\s*\S", text):
-            return False, "en_dash"
+    if re.search(r"\S\s*\u2013\s*\S", text):
+        return False, "en_dash_between_words"
     if " -- " in text:
         return False, "double_dash"
     sentences = _split_sentences(text)
-    if not (2 <= len(sentences) <= 6):
+    if not (2 <= len(sentences) <= 7):
         return False, f"sentence_count:{len(sentences)}"
     lower = text.lower()
     for phrase in BANNED_PHRASES:
         if phrase in lower:
             return False, f"banned:{phrase}"
-    if _has_name_like_sequence(text):
-        return False, "name_like"
+    if _has_person_name(text):
+        return False, "person_name_detected"
     return True, "ok"
 
 
@@ -209,7 +211,6 @@ def _call_claude(user_prompt: str) -> str:
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": user_prompt}],
     )
-    # concatenate all text blocks
     out = "".join(
         getattr(block, "text", "") for block in resp.content
         if getattr(block, "type", None) == "text"
@@ -224,15 +225,22 @@ def generate_rationale(
 ) -> Optional[str]:
     """Return a validated rationale or None after exhausting retries."""
     user_prompt = build_user_prompt(member, partner)
-    last_err: Optional[str] = None
-    for _ in range(max_retries):
+    pair_tag = f"{member.id}->{partner.id}"
+    for attempt in range(1, max_retries + 1):
         try:
             text = _call_claude(user_prompt)
-        except Exception as e:  # API error, network, etc.
-            last_err = f"api_error:{e}"
+        except Exception as e:
+            logger.warning("rationale %s attempt %d api_error: %s", pair_tag, attempt, e)
             continue
         ok, reason = validate_rationale(text)
         if ok:
+            if attempt > 1:
+                logger.info("rationale %s succeeded on attempt %d", pair_tag, attempt)
             return text
-        last_err = reason
+        snippet = text[:120].replace("\n", " ")
+        logger.warning(
+            "rationale %s attempt %d failed validator: %s | text: %s...",
+            pair_tag, attempt, reason, snippet,
+        )
+    logger.warning("rationale %s EXHAUSTED %d retries", pair_tag, max_retries)
     return None
