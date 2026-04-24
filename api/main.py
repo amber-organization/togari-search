@@ -39,7 +39,7 @@ app = FastAPI(title="PeopleRank UC1", version="1.0")
 
 # ---------- helpers ----------
 
-SCREENING_MIN_WORDS = 50
+SCREENING_MIN_WORDS = 25
 CONF_HIGH = 0.70
 CONF_LOW = 0.45
 
@@ -174,7 +174,24 @@ async def match_community_event(request: Request):
     attendees_by_id: Dict[str, Attendee] = {a.id: a for a in req.attendees}
     insufficient: Set[str] = set()
     for a in req.attendees:
-        wc = _word_count(a.whyJoin or "", a.socialBravery or "", a.screeningNotes or "")
+        _host_note_texts = []
+        for hn in (a.hostNotes or []):
+            _host_note_texts.append(getattr(hn, "note", "") or "")
+            _host_note_texts.append(getattr(hn, "observation", "") or "")
+        _feedback_texts = []
+        for fb in (a.feedback or []):
+            _feedback_texts.append(getattr(fb, "highlight", "") or "")
+            _feedback_texts.append(getattr(fb, "myDinner", "") or "")
+            _feedback_texts.append(getattr(fb, "nextBigEvent", "") or "")
+        wc = _word_count(
+            a.whyJoin or "",
+            a.socialBravery or "",
+            a.screeningNotes or "",
+            a.passion or "",
+            a.occupation or "",
+            *(_host_note_texts),
+            *(_feedback_texts),
+        )
         if wc < SCREENING_MIN_WORDS:
             insufficient.add(a.id)
 
@@ -258,7 +275,7 @@ async def match_community_event(request: Request):
         return (sel, rationale)
 
     rationale_results: List[tuple] = []
-    with ThreadPoolExecutor(max_workers=4) as pool:
+    with ThreadPoolExecutor(max_workers=2) as pool:
         futures = [pool.submit(_gen, sel) for sel in selected]
         for fut in as_completed(futures):
             result = fut.result()

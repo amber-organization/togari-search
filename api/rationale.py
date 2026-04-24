@@ -13,7 +13,7 @@ logger = logging.getLogger("peoplerank.rationale")
 MODEL_ID = "claude-sonnet-4-5"
 MAX_TOKENS = 400
 TEMPERATURE = 0.7
-MAX_RETRIES = 5
+MAX_RETRIES = 3
 
 SYSTEM_PROMPT = """You are writing a short paragraph that will be shown to one person (the member) about another person (the partner) they should meet at an event. You have access to screening details for both.
 
