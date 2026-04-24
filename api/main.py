@@ -226,32 +226,33 @@ async def match_community_event(request: Request):
             detail=f"scoring_failed: {e}",
         )
 
-    # Index pairs by member id for fast lookup.
-    pairs_by_member: Dict[str, List[Dict]] = {}
+    # 6. Mutual pair selection via 2-regular max-weight b-matching.
+    # Guarantees: every member gets exactly 2 matches, all mutual,
+    # total score across all pairs is globally optimized.
+    exclusions: Dict[str, Set[str]] = {
+        a.id: set(a.excludedPartnerIds or []) for a in scoring_pool
+    }
+    filtered_pairs = []
     for sp in scored_pairs:
         a_id = sp["person_a"]["id"]
         b_id = sp["person_b"]["id"]
-        pairs_by_member.setdefault(a_id, []).append({"other": b_id, "pair": sp})
-        pairs_by_member.setdefault(b_id, []).append({"other": a_id, "pair": sp})
-
-    # 6. Pick top-2 per member (ranking still uses the internal full score)
+        if b_id in exclusions.get(a_id, set()):
+            continue
+        if a_id in exclusions.get(b_id, set()):
+            continue
+        filtered_pairs.append(sp)
+    pool_ids = [m.id for m in scoring_pool]
+    mutual_pairs = select_mutual_pairs(filtered_pairs, pool_ids, target_degree=2)
+    assignments = assignments_from_pairs(mutual_pairs, pool_ids)
     selected: List[Dict] = []
     no_viable: Set[str] = set()
-    for member in scoring_pool:
-        mid = member.id
-        excluded = set(member.excludedPartnerIds or [])
-        candidates = [
-            c for c in pairs_by_member.get(mid, [])
-            if c["other"] not in excluded and c["other"] not in insufficient
-        ]
-        candidates.sort(key=lambda c: c["pair"]["final_score"], reverse=True)
-        top = candidates[:2]
-        if not top:
+    for mid in pool_ids:
+        partners = assignments.get(mid, [])
+        if not partners:
             no_viable.add(mid)
             continue
-        for c in top:
-            selected.append({"memberId": mid, "partnerId": c["other"], "pair": c["pair"]})
-
+        for partner_id, pair in partners:
+            selected.append({"memberId": mid, "partnerId": partner_id, "pair": pair})
     for mid in no_viable:
         skipped.append(SkippedOut(memberId=mid, reason="no_viable_partners"))
 
