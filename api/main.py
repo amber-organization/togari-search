@@ -258,7 +258,7 @@ async def match_community_event(request: Request):
         return (sel, rationale)
 
     rationale_results: List[tuple] = []
-    with ThreadPoolExecutor(max_workers=10) as pool:
+    with ThreadPoolExecutor(max_workers=4) as pool:
         futures = [pool.submit(_gen, sel) for sel in selected]
         for fut in as_completed(futures):
             result = fut.result()
